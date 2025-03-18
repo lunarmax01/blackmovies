@@ -242,12 +242,6 @@ const searchChannelSchema = new mongoose.Schema({
       if (!existingChannel) {
         return bot.sendMessage(chatId, "❌ Hozircha kino qidirish uchun kanal yo‘q!");
       }
-  
-      bot.sendMessage(chatId, `🎬 Kinolarni shu kanalda qidiring: ${existingChannel.channelUsername}`, {
-        reply_markup: {
-          inline_keyboard: [[{ text: "🔍 Kanalga o‘tish", url: `https://t.me/${existingChannel.channelUsername.replace('@', '')}` }]]
-        }
-      });
     }
   });
 
