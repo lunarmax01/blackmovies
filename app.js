@@ -1,15 +1,14 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const mongoose = require('mongoose');
-const Film = require('./models/Film');
-
 const TOKEN = process.env.BOT_TOKEN;
 const ADMIN_IDS = process.env.ADMINS ? process.env.ADMINS.split(',').map(id => parseInt(id)) : [];
 const bot = new TelegramBot(TOKEN, { polling: true });
+const Film = require('./Film');
 
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB ulandi!'))
-  .catch(err => console.error('MongoDB ulanish xatosi:', err));
+.then(() => console.log('MongoDB ulandi!'))
+.catch(err => console.error('MongoDB ulanish xatosi:', err));
 
 const movieSchema = new mongoose.Schema({
   number: Number,
