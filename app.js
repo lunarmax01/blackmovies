@@ -1,6 +1,7 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const mongoose = require('mongoose');
+const Film = require('./models/Film');
 
 const TOKEN = process.env.BOT_TOKEN;
 const ADMIN_IDS = process.env.ADMINS ? process.env.ADMINS.split(',').map(id => parseInt(id)) : [];
@@ -60,6 +61,14 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const isSubscribed = await checkSubscription(chatId);
   const isAdmin = ADMIN_IDS.includes(msg.from.id);
+  bot.setMyCommands([
+    { command: '/start', description: 'Botni ishga tushirish' },
+    { command: '/films', description: '🎬 Eng so‘nggi filmlarni ko‘rish' },
+    { command: '/search', description: '🔍 Film nomi bo‘yicha qidirish' },
+    { command: '/download', description: '📥 Filmni yuklab olish' },
+    { command: '/about', description: 'ℹ️ Biz haqimizda maʼlumot' },
+    { command: '/settings', description: '⚙️ Sozlamalarni o‘zgartirish' },
+  ]);  
 
   if (!isSubscribed) return sendSubscriptionMessage(chatId);
 
@@ -67,7 +76,7 @@ bot.onText(/\/start/, async (msg) => {
     ? [[{ text: '📂 Kino qo‘shish' }, { text: '📜 Kanal qo‘shish' }], [{ text: '🎬 Kino qidirish' }]]
     : [[{ text: '🎬 Kino qidirish' }]];
 
-  bot.sendMessage(chatId, 'Xush kelibsiz! Quyidagi menyudan kerakli bo‘limni tanlang.', {
+  bot.sendMessage(chatId, 'Xush kelibsiz! Quyidagi menyudan kerakli bo‘limni tanlashingiz mumkun.', {
     reply_markup: { keyboard, resize_keyboard: true }
   });
 });
@@ -353,4 +362,52 @@ const searchChannelSchema = new mongoose.Schema({
         console.error("Xatolik yuz berdi:", error);
         bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko‘ring.");
     }
+});
+
+// About 
+
+bot.onText(/\/about/, (msg) => {
+  const chatId = msg.chat.id;
+
+  const text = `
+🖤 *BlackMovies Bot* — sizning sevimli filmlaringiz uchun yagona manba!
+
+🎬 Bu yerda siz:
+• Eng so‘nggi va mashhur filmlarni topasiz  
+• Qidiruv orqali istalgan filmni oson topasiz  
+• Yuqori sifatli formatlarda yuklab olishingiz mumkin
+
+📌 Bizning maqsadimiz — sizga eng qulay va tezkor kino tajribasini taqdim etish!
+
+📥 Taklif yoki muammo bo‘lsa, bog‘laning: [Admin bilan bog'lanish](https://t.me/lunar_web)
+`;
+
+  bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+});
+
+// films
+
+
+bot.onText(/\/films/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  try {
+    const films = await Film.find().sort({ createdAt: -1 }).limit(5); // oxirgi 5 ta film
+
+    if (films.length === 0) {
+      return bot.sendMessage(chatId, '📭 Hozircha hech qanday film mavjud emas.');
+    }
+
+    let text = `🎬 *Eng so‘nggi yuklangan filmlar:*\n\n`;
+
+    films.forEach((film, index) => {
+      text += `${index + 1}. 🎞 *${film.title}* (${film.year}) — ${film.genre}\n`;
+    });
+
+    bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+
+  } catch (err) {
+    console.error(err);
+    bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.');
+  }
 });
