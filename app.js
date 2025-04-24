@@ -5,6 +5,7 @@ const TOKEN = process.env.BOT_TOKEN;
 const ADMIN_IDS = process.env.ADMINS ? process.env.ADMINS.split(',').map(id => parseInt(id)) : [];
 const bot = new TelegramBot(TOKEN, { polling: true });
 const Film = require('./Film');
+const searchFilms = require('./searchFilms');
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log('MongoDB ulandi!'))
@@ -409,4 +410,46 @@ bot.onText(/\/films/, async (msg) => {
     console.error(err);
     bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.');
   }
+});
+
+
+// search
+
+bot.on('inline_query', async (query) => {
+  const searchText = query.query.trim();
+
+  if (!searchText) return;
+
+  // Bu yerda sizning film ma'lumotlaringiz bazasidan qidiruv amalga oshiriladi
+  const results = await searchFilms(searchText); // searchFilms - siz yaratgan qidiruv funksiyasi
+
+  const inlineResults = results.map((film, index) => ({
+    type: 'article',
+    id: String(index),
+    title: film.title,
+    description: `${film.year} • ${film.genre}`,
+    input_message_content: {
+      message_text: `🎬 *${film.title}* (${film.year})\n📂 Janr: ${film.genre}`,
+      parse_mode: 'Markdown'
+    }
+  }));
+
+  bot.answerInlineQuery(query.id, inlineResults, { cache_time: 0 });
+});
+
+bot.onText(/\/search/, (msg) => {
+  const chatId = msg.chat.id;
+
+  bot.sendMessage(chatId, '🔍 Film qidirishni boshlash uchun quyidagi tugmani bosing:', {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: '🔎 Qidiruvni boshlash',
+            switch_inline_query_current_chat: ''
+          }
+        ]
+      ]
+    }
+  });
 });
