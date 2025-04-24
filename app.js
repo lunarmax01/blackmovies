@@ -67,7 +67,6 @@ bot.onText(/\/start/, async (msg) => {
     { command: '/search', description: '🔍 Film nomi bo‘yicha qidirish' },
     { command: '/download', description: '📥 Filmni yuklab olish' },
     { command: '/about', description: 'ℹ️ Biz haqimizda maʼlumot' },
-    { command: '/settings', description: '⚙️ Sozlamalarni o‘zgartirish' },
   ]);  
 
   if (!isSubscribed) return sendSubscriptionMessage(chatId);
