@@ -4,20 +4,13 @@ const mongoose = require('mongoose');
 const TOKEN = process.env.BOT_TOKEN;
 const ADMIN_IDS = process.env.ADMINS ? process.env.ADMINS.split(',').map(id => parseInt(id)) : [];
 const bot = new TelegramBot(TOKEN, { polling: true });
-const Film = require('./Film');
-const searchFilms = require('./searchFilms');
+const Movies = require('./Movies');
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log('MongoDB ulandi!'))
 .catch(err => console.error('MongoDB ulanish xatosi:', err));
 
-const movieSchema = new mongoose.Schema({
-  number: Number,
-  title: String,
-  videoId: String,
-});
-
-const Movie = mongoose.model('Movie', movieSchema);
+const Movie = Movies
 
 const channelSchema = new mongoose.Schema({
   channelUsername: String,
@@ -64,7 +57,6 @@ bot.onText(/\/start/, async (msg) => {
   bot.setMyCommands([
     { command: '/start', description: 'Botni ishga tushirish' },
     { command: '/films', description: '🎬 Eng so‘nggi filmlarni ko‘rish' },
-    { command: '/search', description: '🔍 Film nomi bo‘yicha qidirish' },
     { command: '/download', description: '📥 Filmni yuklab olish' },
     { command: '/about', description: 'ℹ️ Biz haqimizda maʼlumot' },
   ]);  
@@ -330,6 +322,7 @@ const searchChannelSchema = new mongoose.Schema({
     }
   });
 
+  // kino qidirish raqam orqalik foydalanuvchi
   bot.on('message', async (msg) => {
     try {
         const chatId = msg.chat.id;
@@ -386,69 +379,35 @@ bot.onText(/\/about/, (msg) => {
 
 // films
 
-
 bot.onText(/\/films/, async (msg) => {
   const chatId = msg.chat.id;
 
   try {
-    const films = await Film.find().sort({ createdAt: -1 }).limit(5); // oxirgi 5 ta film
+    let movies = await Movies.find().sort({ number: -1 }); // movies kolleksiyasidan o'qish
 
-    if (films.length === 0) {
+    if (movies.length === 0) {
       return bot.sendMessage(chatId, '📭 Hozircha hech qanday film mavjud emas.');
     }
 
-    let text = `🎬 *Eng so‘nggi yuklangan filmlar:*\n\n`;
+    if (movies.length > 5) {
+      movies = movies.slice(0, 5); // Faqat 5 ta filmni ko'rsatish
+    }
 
-    films.forEach((film, index) => {
-      text += `${index + 1}. 🎞 *${film.title}* (${film.year}) — ${film.genre}\n`;
-    });
+    for (const movie of movies) {
+      let caption = `🎬 *${movie.title}*`;
 
-    bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+      if (movie.videoId && movie.videoId.trim() !== '') {
+        await bot.sendVideo(chatId, movie.videoId, {
+          caption,
+          parse_mode: 'Markdown'
+        });
+      } else {
+        await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
+      }
+    }
 
   } catch (err) {
     console.error(err);
     bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.');
   }
-});
-
-
-// search
-
-bot.on('inline_query', async (query) => {
-  const searchText = query.query.trim();
-
-  if (!searchText) return;
-
-  // Bu yerda sizning film ma'lumotlaringiz bazasidan qidiruv amalga oshiriladi
-  const results = await searchFilms(searchText); // searchFilms - siz yaratgan qidiruv funksiyasi
-
-  const inlineResults = results.map((film, index) => ({
-    type: 'article',
-    id: String(index),
-    title: film.title,
-    description: `${film.year} • ${film.genre}`,
-    input_message_content: {
-      message_text: `🎬 *${film.title}* (${film.year})\n📂 Janr: ${film.genre}`,
-      parse_mode: 'Markdown'
-    }
-  }));
-
-  bot.answerInlineQuery(query.id, inlineResults, { cache_time: 0 });
-});
-
-bot.onText(/\/search/, (msg) => {
-  const chatId = msg.chat.id;
-
-  bot.sendMessage(chatId, '🔍 Film qidirishni boshlash uchun quyidagi tugmani bosing:', {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: '🔎 Qidiruvni boshlash',
-            switch_inline_query_current_chat: ''
-          }
-        ]
-      ]
-    }
-  });
 });
