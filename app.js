@@ -67,7 +67,7 @@ bot.onText(/\/start/, async (msg) => {
     ? [[{ text: '📂 Kino qo‘shish' }, { text: '📜 Kanal qo‘shish' }], [{ text: '🎬 Kino qidirish' }]]
     : [[{ text: '🎬 Kino qidirish' }]];
 
-  bot.sendMessage(chatId, 'Xush kelibsiz! Quyidagi menyudan kerakli bo‘limni tanlashingiz mumkun.', {
+  bot.sendMessage(chatId, 'Xush kelibsiz.', {
     reply_markup: { keyboard, resize_keyboard: true }
   });
 });
@@ -213,37 +213,55 @@ const searchChannelSchema = new mongoose.Schema({
       bot.sendMessage(chatId, "❌ Kanal qo‘shish bekor qilindi.");
     }
   });
-  
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-  
-    if (isAddingSearchChannel.get(chatId) && msg.text.startsWith('@')) {
-      const channelUsername = msg.text.trim();
-  
-      const existingChannel = await SearchChannel.findOne();
-      if (existingChannel) {
-        await SearchChannel.deleteMany({});
-      }
-  
-      await SearchChannel.create({ channelUsername });
-      bot.sendMessage(chatId, `✅ Kino qidirish uchun kanal qo‘shildi: ${channelUsername}`);
-  
-      isAddingSearchChannel.delete(chatId);
+    const text = msg.text;
+
+    if (!text) return; // Agar xabar yo‘q bo‘lsa, to‘xtat
+
+    // Admin kanal qo‘shyapti
+    if (isAddingSearchChannel.get(chatId) && text.startsWith('@')) {
+        const channelUsername = text.trim();
+
+        await SearchChannel.deleteMany({}); // Eski kanallarni tozalash
+        await SearchChannel.create({ channelUsername }); // Yangi kanal qo‘shish
+
+        await bot.sendMessage(chatId, `✅ Kino qidirish uchun kanal qo‘shildi: ${channelUsername}`);
+        isAddingSearchChannel.delete(chatId);
+        return;
     }
-  });
-  
-  // 🎬 Kino qidirish tugmasi bosilganda admin uchun
-  bot.on('message', async (msg) => {
+
+    // 🎬 Kino qidirish tugmasi bosilganda
+    if (text === '🎬 Kino qidirish') {
+        const existingChannel = await SearchChannel.findOne();
+
+        if (!existingChannel) {
+            return bot.sendMessage(chatId, "❌ Hozircha kino qidirish uchun kanal yo‘q!");
+        }
+
+        const channelUsername = existingChannel.channelUsername.replace('@', '');
+
+        await bot.sendMessage(chatId, `🎥 Kino topish uchun kanalga o'ting:`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "🎬 Kanalga o'tish", url: `https://t.me/${channelUsername}` }
+                    ]
+                ]
+            }
+        });
+
+        return;
+    }
+});
+
+// Admin kanal qo'shishni boshlashi uchun
+bot.onText(/\/addsearchchannel/, async (msg) => {
     const chatId = msg.chat.id;
-    
-    if (msg.text === '🎬 Kino qidirish') {
-      const existingChannel = await SearchChannel.findOne();
-  
-      if (!existingChannel) {
-        return bot.sendMessage(chatId, "❌ Hozircha kino qidirish uchun kanal yo‘q!");
-      }
-    }
-  });
+
+    isAddingSearchChannel.set(chatId, true);
+    await bot.sendMessage(chatId, "📥 Kino qidirish uchun kanal username'ini yuboring (masalan, @blackmovi).");
+});
 
 //   kino qoshish uchun 
   let addingMovies = {};
@@ -409,5 +427,30 @@ bot.onText(/\/films/, async (msg) => {
   } catch (err) {
     console.error(err);
     bot.sendMessage(chatId, '❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.');
+  }
+});
+
+// followers bot
+
+async function getChannelMembersCount(bot, channelUsername) {
+  try {
+    const count = await bot.getChatMembersCount(channelUsername);
+    return count;
+  } catch (error) {
+    console.error('Obunachilar sonini olishda xatolik:', error);
+    return null;
+  }
+}
+
+bot.onText(/\/subs/, async (msg) => {
+  const chatId = msg.chat.id;
+  const channelUsername = '@blackmovi'; // Kanal username
+
+  const count = await getChannelMembersCount(bot, channelUsername);
+
+  if (count !== null) {
+    await bot.sendMessage(chatId, `📊 Hozirda kanalimizda ${count} ta obunachi bor.`);
+  } else {
+    await bot.sendMessage(chatId, `❗ Obunachilar sonini olishda xatolik yuz berdi.`);
   }
 });
